@@ -122,35 +122,36 @@ struct ImageBuffer {
     this->width = width; this->height = height;
   };
 };
-
-PyObject *G_DEPTH_IMAGE_PYTHON_CALLBACK = NULL;
-PyObject *G_GRAY_IMAGE_PYTHON_CALLBACK = NULL;
+////////////////////////////////////////////////////////////////////////////////
+// Callbacks
+PyObject *G_PYTHON_DATA_CALLBACK = NULL;
 ImageBuffer<float> G_DEPTH_IMAGE_BUFFER;
 ImageBuffer<uint16_t> G_GRAY_IMAGE_BUFFER;
+
+template<typename T>
+PyObject *convert_buffer_to_numpy_array(const ImageBuffer<T> &image, const NPY_TYPES type) {
+  npy_intp dims[2] = {image.height, image.width};
+  return PyArray_SimpleNewFromData(2, dims, type, image.data);
+}
+
+void call_python_callback(PyObject *depth_array, PyObject *gray_array, PyObject *callback) {
+  PyObject *args = PyTuple_Pack(2, depth_array, gray_array);
+  PyObject *ret = PyObject_Call(callback, args, NULL);
+  Py_DECREF(ret);
+  Py_DECREF(args);
+}
 
 void parse_images(royale_depth_data *info) {
   for (uint32_t i=0; i < info->nr_points; ++i) {
     G_DEPTH_IMAGE_BUFFER.data[i] = info->points[i].z;
     G_GRAY_IMAGE_BUFFER.data[i] = info->points[i].gray_value;
   }
-
-  if (G_DEPTH_IMAGE_PYTHON_CALLBACK) {
-    // Convert to NumPy Image
-    npy_intp dims[2] = {G_DEPTH_IMAGE_BUFFER.height, G_DEPTH_IMAGE_BUFFER.width};
-    PyObject *image = PyArray_SimpleNewFromData(2, dims, NPY_FLOAT, G_DEPTH_IMAGE_BUFFER.data);
-    PyObject *args = PyTuple_Pack(1, image);
-
-    // Get GIL
-    PyGILState_STATE gil_state = PyGILState_Ensure();
-
-    // Call Python callback
-    PyObject *ret = PyObject_Call(G_DEPTH_IMAGE_PYTHON_CALLBACK, args, NULL);
-
-    Py_DECREF(ret);
-    Py_DECREF(args);
-
-    // Release GIL
-    PyGILState_Release(gil_state);
+  if (G_PYTHON_DATA_CALLBACK) {
+    PyGILState_STATE lock = PyGILState_Ensure();
+    PyObject *depth = convert_buffer_to_numpy_array(G_DEPTH_IMAGE_BUFFER, NPY_FLOAT);
+    PyObject *gray = convert_buffer_to_numpy_array(G_GRAY_IMAGE_BUFFER, NPY_UINT16);
+    call_python_callback(depth, gray, G_PYTHON_DATA_CALLBACK);
+    PyGILState_Release(lock);
   }
 };
 ////////////////////////////////////////////////////////////////////////////////
@@ -357,7 +358,7 @@ public:
     // ----->
     royale_camera_status status = royale_camera_device_register_data_listener(handle_, &parse_images);
     if (callable != Py_None) {
-      G_DEPTH_IMAGE_PYTHON_CALLBACK = callable;
+      G_PYTHON_DATA_CALLBACK = callable;
       Py_XINCREF(callable);
     }
     // <-----
@@ -378,9 +379,9 @@ public:
     }
     // DO NOT CHANGE THE ORDER OF THE FOLLOWING THREE LINES, OTHERWISE THE CALL TO C API HANGS UP
     // ----->
-    if (G_DEPTH_IMAGE_PYTHON_CALLBACK != Py_None) {
-      Py_XDECREF(G_DEPTH_IMAGE_PYTHON_CALLBACK);
-      G_DEPTH_IMAGE_PYTHON_CALLBACK = NULL;
+    if (G_PYTHON_DATA_CALLBACK != Py_None) {
+      Py_XDECREF(G_PYTHON_DATA_CALLBACK);
+      G_PYTHON_DATA_CALLBACK = NULL;
     }
     royale_camera_status status = royale_camera_device_unregister_data_listener(handle_);
     // <-----
