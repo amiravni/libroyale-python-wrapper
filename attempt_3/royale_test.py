@@ -10,9 +10,9 @@ def normalize_image(image):
     return (image / np.max(image) * 255).astype(np.uint8)
 
 i = 0
-def aaa(image):
+def save_image(image):
     global i
-    filename = 'images/frame_{}.png'.format(i)
+    filename = 'images/frame_{:03d}.png'.format(i)
     print filename
     scipy.misc.imsave(filename, normalize_image(image))
     i += 1
@@ -34,12 +34,12 @@ def test2():
     cases = camera.get_use_cases()
     print cases
     camera.set_use_case(cases[0])
-    camera.register_data_listener(aaa)
+    print camera.get_camera_info()
+    print 'Capturing?', camera.is_capturing()
     camera.start_capture()
+    camera.register_data_listener(save_image)
     time.sleep(3)
-
-    # Unregister must be before stop capture
-    # otherwise it hangs
+    print 'Capturing?', camera.is_capturing()
     camera.unregister_data_listener()
     camera.stop_capture()
 

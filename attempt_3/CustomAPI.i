@@ -65,8 +65,9 @@ public:
     if (handle_ == ROYALE_NO_INSTANCE_CREATED) {
 	PyErr_Format(PyExc_RuntimeError, "Failed to create camera manager.");
 	return NULL;
+    } else {
+      Py_RETURN_NONE;
     }
-    Py_RETURN_NONE;
   };
   PyObject *get_connected_cameras() const {
     uint32_t nr_cameras;
@@ -85,9 +86,10 @@ public:
     if (cam_handle == ROYALE_NO_INSTANCE_CREATED) {
       PyErr_SetString(PyExc_RuntimeError, "Failed to create camera object.");
       return NULL;
+    } else {
+      printf("Created camera handle: %llu\n", cam_handle);
+      return PyLong_FromUnsignedLongLong(cam_handle);
     }
-    printf("Created camera handle: %llu\n", cam_handle);
-    return PyLong_FromUnsignedLongLong(cam_handle);
   };
 };
 ////////////////////////////////////////////////////////////////////////////////
@@ -177,13 +179,12 @@ public:
       return NULL;
     }
   };
-
   PyObject *destroy() {
     printf("Destroying camera device: %llu.\n", handle_);
     royale_camera_device_destroy(handle_);
     handle_ = 0;
+    Py_RETURN_NONE;
   }
-
   PyObject *getId() const {
     printf("Fetching camera device ID: %llu.\n", handle_);
     char *id;
@@ -212,11 +213,11 @@ public:
     }
   };
   PyObject *get_camera_info() const {
-    printf("Fetching camera info: %llu.\n", handle_);
+    printf("Fetching camera info from device: %llu.\n", handle_);
     uint32_t nr_info_entries;
     royale_pair_string_string *info;
     royale_camera_status status = royale_camera_device_get_camera_info(handle_, &info, &nr_info_entries);
-
+    printf("Fetched %u info.\n", nr_info_entries);
     if (ROYALE_STATUS_SUCCESS == status) {
       PyObject *ret = to_dict(info, nr_info_entries);
       royale_free_pair_string_string_array(&info, nr_info_entries);
@@ -349,10 +350,14 @@ public:
       PyErr_SetString(PyExc_TypeError, "callable must be Callable object.");
       return NULL;
     }
+    // if (!is_capturing()) {
+    //   PyErr_SetString(PyExc_RuntimeError, "Camera must be capturing data to register callback.");
+    //   return NULL
+    // }
 
-    royale_camera_status status = royale_camera_device_register_data_listener(handle_, &parse_z_from_depth_data);
-    g_py_process_z = callable;
     Py_XINCREF(callable);
+    g_py_process_z = callable;
+    royale_camera_status status = royale_camera_device_register_data_listener(handle_, &parse_z_from_depth_data);
 
     if (ROYALE_STATUS_SUCCESS == status) {
       Py_RETURN_NONE;
@@ -363,10 +368,14 @@ public:
   };
   PyObject *unregister_data_listener() {
     printf("Unregistering depth image listener.\n");
-
-    Py_XDECREF(g_py_process_z);
-    g_py_process_z = NULL;
+    if (!is_capturing()) {
+      PyErr_SetString(PyExc_RuntimeError,
+		      "Camera must be capturing data to unregister callback, otherwise the underlying C API call hangs.");
+      return NULL;
+    }
     royale_camera_status status = royale_camera_device_unregister_data_listener(handle_);
+    g_py_process_z = NULL;
+    Py_XDECREF(g_py_process_z);
 
     if (ROYALE_STATUS_SUCCESS == status) {
       Py_RETURN_NONE;
@@ -375,6 +384,17 @@ public:
       return NULL;
     }
   };
+  PyObject *is_capturing() {
+    bool is_capturing;
+    royale_camera_status status = royale_camera_device_is_capturing(handle_, &is_capturing);
+
+    if (ROYALE_STATUS_SUCCESS == status) {
+      return PyBool_FromLong(is_capturing);
+    } else {
+      set_error_message(status, "Failed to check capturing status", PyExc_RuntimeError);
+      return NULL;
+    }
+  }
   // *TODO
   // register_depth_image_listener
   // unregister_depth_image_listener
@@ -389,7 +409,6 @@ public:
   // get_lens_parameters
   // is_connected
   // is_calibrated
-  // is_capturing
   // get_access_level
   // start_recording
   // stop_recording
