@@ -93,54 +93,58 @@ public:
   };
 };
 ////////////////////////////////////////////////////////////////////////////////
-struct CustomDepthImage {
-  float *data;
+template <typename T>
+struct ImageBuffer {
+  T *data;
   uint16_t width;
   uint16_t height;
-  uint32_t nr_data_entries;
 
-  CustomDepthImage()
+  ImageBuffer()
     : data(NULL)
     , width(0)
     , height(0)
-    , nr_data_entries(0)
   {};
-  ~CustomDepthImage() {
-    deallocate();
+  ~ImageBuffer() {
+    if (data) {
+      deallocate();
+    }
   };
   void deallocate() {
     printf("Deallocating memory.\n");
     delete[] data;
     data = NULL;
-    width = height = nr_data_entries = 0;
+    width = height = 0;
   };
-  void allocate(uint16_t width, uint16_t height, uint32_t nr_data_entries) {
-    printf("Allocating %d pixels (W:%d, H:%d).\n", nr_data_entries, width, height);
-    data = new float[nr_data_entries];
-    this->nr_data_entries = nr_data_entries;
+  void allocate(const uint16_t width, const uint16_t height) {
+    uint32_t n_pixels = width * height;
+    printf("Allocating %d pixels (W:%d, H:%d).\n", n_pixels, width, height);
+    data = new T[n_pixels];
     this->width = width; this->height = height;
   };
 };
 
-PyObject *G_PY_PROCESS_Z = NULL;
-CustomDepthImage G_CUSTOM_DEPTH_IMAGE;
+PyObject *G_DEPTH_IMAGE_PYTHON_CALLBACK = NULL;
+PyObject *G_GRAY_IMAGE_PYTHON_CALLBACK = NULL;
+ImageBuffer<float> G_DEPTH_IMAGE_BUFFER;
+ImageBuffer<uint16_t> G_GRAY_IMAGE_BUFFER;
 
-void parse_z_from_depth_data(royale_depth_data *info) {
+void parse_images(royale_depth_data *info) {
   for (uint32_t i=0; i < info->nr_points; ++i) {
-    G_CUSTOM_DEPTH_IMAGE.data[i] = info->points[i].z;
+    G_DEPTH_IMAGE_BUFFER.data[i] = info->points[i].z;
+    G_GRAY_IMAGE_BUFFER.data[i] = info->points[i].gray_value;
   }
 
-  if (G_PY_PROCESS_Z) {
+  if (G_DEPTH_IMAGE_PYTHON_CALLBACK) {
+    // Convert to NumPy Image
+    npy_intp dims[2] = {G_DEPTH_IMAGE_BUFFER.height, G_DEPTH_IMAGE_BUFFER.width};
+    PyObject *image = PyArray_SimpleNewFromData(2, dims, NPY_FLOAT, G_DEPTH_IMAGE_BUFFER.data);
+    PyObject *args = PyTuple_Pack(1, image);
+
     // Get GIL
     PyGILState_STATE gil_state = PyGILState_Ensure();
 
-    // Convert to NumPy Image
-    npy_intp dims[2] = {G_CUSTOM_DEPTH_IMAGE.height, G_CUSTOM_DEPTH_IMAGE.width};
-    PyObject *image = PyArray_SimpleNewFromData(2, dims, NPY_FLOAT, G_CUSTOM_DEPTH_IMAGE.data);
-    PyObject *args = PyTuple_Pack(1, image);
-
     // Call Python callback
-    PyObject *ret = PyObject_Call(G_PY_PROCESS_Z, args, NULL);
+    PyObject *ret = PyObject_Call(G_DEPTH_IMAGE_PYTHON_CALLBACK, args, NULL);
 
     Py_DECREF(ret);
     Py_DECREF(args);
@@ -345,14 +349,15 @@ public:
 
     // Currently picoflexx supports one resolution 224x171.
     // If it supports something other we need to change it here dynamically.
-    uint16_t width = 224, height = 171; uint32_t nr_points = 38304;
-    G_CUSTOM_DEPTH_IMAGE.allocate(width, height, nr_points);
+    uint16_t width = 224, height = 171;
+    G_DEPTH_IMAGE_BUFFER.allocate(width, height);
+    G_GRAY_IMAGE_BUFFER.allocate(width, height);
 
     // DO NOT CHANGE THE ORDER OF THE FOLLOWING THREE LINES, OTHERWISE THE CALL TO C API HANGS UP
     // ----->
-    royale_camera_status status = royale_camera_device_register_data_listener(handle_, &parse_z_from_depth_data);
+    royale_camera_status status = royale_camera_device_register_data_listener(handle_, &parse_images);
     if (callable != Py_None) {
-      G_PY_PROCESS_Z = callable;
+      G_DEPTH_IMAGE_PYTHON_CALLBACK = callable;
       Py_XINCREF(callable);
     }
     // <-----
@@ -373,14 +378,15 @@ public:
     }
     // DO NOT CHANGE THE ORDER OF THE FOLLOWING THREE LINES, OTHERWISE THE CALL TO C API HANGS UP
     // ----->
-    if (G_PY_PROCESS_Z != Py_None) {
-      Py_XDECREF(G_PY_PROCESS_Z);
-      G_PY_PROCESS_Z = NULL;
+    if (G_DEPTH_IMAGE_PYTHON_CALLBACK != Py_None) {
+      Py_XDECREF(G_DEPTH_IMAGE_PYTHON_CALLBACK);
+      G_DEPTH_IMAGE_PYTHON_CALLBACK = NULL;
     }
     royale_camera_status status = royale_camera_device_unregister_data_listener(handle_);
     // <-----
 
-    G_CUSTOM_DEPTH_IMAGE.deallocate();
+    G_DEPTH_IMAGE_BUFFER.deallocate();
+    G_GRAY_IMAGE_BUFFER.deallocate();
 
     if (ROYALE_STATUS_SUCCESS == status) {
       Py_RETURN_NONE;
