@@ -355,9 +355,10 @@ public:
     //   return NULL
     // }
 
-    Py_XINCREF(callable);
-    g_py_process_z = callable;
+    // DO NOT CHANGE THE ORDER OF THE FOLLOWING THREE LINES, OTHERWISE THE CALL TO C API HANGS UP
     royale_camera_status status = royale_camera_device_register_data_listener(handle_, &parse_z_from_depth_data);
+    g_py_process_z = callable;
+    Py_XINCREF(callable);
 
     if (ROYALE_STATUS_SUCCESS == status) {
       Py_RETURN_NONE;
@@ -373,9 +374,10 @@ public:
 		      "Camera must be capturing data to unregister callback, otherwise the underlying C API call hangs.");
       return NULL;
     }
-    royale_camera_status status = royale_camera_device_unregister_data_listener(handle_);
-    g_py_process_z = NULL;
+    // DO NOT CHANGE THE ORDER OF THE FOLLOWING THREE LINES, OTHERWISE THE CALL TO C API HANGS UP
     Py_XDECREF(g_py_process_z);
+    g_py_process_z = NULL;
+    royale_camera_status status = royale_camera_device_unregister_data_listener(handle_);
 
     if (ROYALE_STATUS_SUCCESS == status) {
       Py_RETURN_NONE;
