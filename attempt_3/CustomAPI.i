@@ -85,8 +85,9 @@ public:
     if (cam_handle == ROYALE_NO_INSTANCE_CREATED) {
       PyErr_SetString(PyExc_RuntimeError, "Failed to create camera object.");
       return NULL;
-      }
-    return PyInt_FromSize_t(cam_handle);
+    }
+    printf("Created camera handle: %llu\n", cam_handle);
+    return PyLong_FromUnsignedLongLong(cam_handle);
   };
 };
 ////////////////////////////////////////////////////////////////////////////////
@@ -106,13 +107,16 @@ struct CustomDepthImage {
     deallocate();
   };
   void deallocate() {
-    width = height = nr_data_entries = 0;
+    printf("Deallocating memory.\n");
+    delete[] data;
     data = NULL;
+    width = height = nr_data_entries = 0;
   };
   void allocate(uint16_t width, uint16_t height, uint32_t nr_data_entries) {
     this->nr_data_entries = nr_data_entries;
     this->width = width;
     this->height = height;
+    printf("Allocating %d memory.\n", nr_data_entries);
     data = new float[nr_data_entries];
   };
 };
@@ -122,7 +126,6 @@ CustomDepthImage g_custom_depth_image;
 
 void parse_z_from_depth_data(royale_depth_data *info) {
   if (g_custom_depth_image.nr_data_entries != info->nr_points) {
-    printf("Allocating %d memory\n", info->nr_points);
     if (g_custom_depth_image.data) {
       g_custom_depth_image.deallocate();
     }
@@ -157,11 +160,12 @@ class CameraDevice {
   royale_camera_handle handle_;
 public:
   CameraDevice(PyObject *handle)
-    :handle_(PyInt_AsSsize_t(handle))
+    :handle_(PyLong_AsUnsignedLongLong(handle))
   {};
   ~CameraDevice() {
-    printf("Destroying camera device: %llu.\n", handle_);
-    royale_camera_device_destroy(handle_);
+    if (handle_) {
+      destroy();
+    }
   };
   PyObject *initialize() const {
     printf("Initializing camera device: %llu.\n", handle_);
@@ -169,10 +173,17 @@ public:
     if (ROYALE_STATUS_SUCCESS == status) {
       Py_RETURN_NONE;
     } else {
-      PyErr_SetString(PyExc_RuntimeError, "Failed to initialize camera device.");
+      set_error_message(status, "Failed to initialize camera device", PyExc_RuntimeError);
       return NULL;
     }
   };
+
+  PyObject *destroy() {
+    printf("Destroying camera device: %llu.\n", handle_);
+    royale_camera_device_destroy(handle_);
+    handle_ = 0;
+  }
+
   PyObject *getId() const {
     printf("Fetching camera device ID: %llu.\n", handle_);
     char *id;
@@ -312,6 +323,7 @@ public:
     }
   };
   PyObject *start_capture() {
+    printf("Starting capture.\n");
     royale_camera_status status = royale_camera_device_start_capture(handle_);
 
     if (ROYALE_STATUS_SUCCESS == status) {
@@ -322,6 +334,7 @@ public:
     }
   };
   PyObject *stop_capture() {
+    printf("Stopping capture.\n");
     royale_camera_status status = royale_camera_device_stop_capture(handle_);
     if (ROYALE_STATUS_SUCCESS == status) {
       Py_RETURN_NONE;

@@ -39,6 +39,8 @@ def test2():
     time.sleep(3)
     camera.stop_capture()
     camera.unregister_data_listener()
+    print 'Exiting'
+
 
 if __name__ == '__main__':
     test2()
