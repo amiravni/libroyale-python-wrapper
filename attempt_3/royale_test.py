@@ -37,8 +37,12 @@ def test2():
     camera.register_data_listener(aaa)
     camera.start_capture()
     time.sleep(3)
-    camera.stop_capture()
+
+    # Unregister must be before stop capture
+    # otherwise it hangs
     camera.unregister_data_listener()
+    camera.stop_capture()
+
     print 'Exiting'
 
 
