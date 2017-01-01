@@ -115,40 +115,32 @@ struct CustomDepthImage {
     width = height = nr_data_entries = 0;
   };
   void allocate(uint16_t width, uint16_t height, uint32_t nr_data_entries) {
-    this->nr_data_entries = nr_data_entries;
-    this->width = width;
-    this->height = height;
-    printf("Allocating %d memory.\n", nr_data_entries);
+    printf("Allocating %d pixels (W:%d, H:%d).\n", nr_data_entries, width, height);
     data = new float[nr_data_entries];
+    this->nr_data_entries = nr_data_entries;
+    this->width = width; this->height = height;
   };
 };
 
-PyObject *g_py_process_z = NULL;
-CustomDepthImage g_custom_depth_image;
+PyObject *G_PY_PROCESS_Z = NULL;
+CustomDepthImage G_CUSTOM_DEPTH_IMAGE;
 
 void parse_z_from_depth_data(royale_depth_data *info) {
-  if (g_custom_depth_image.nr_data_entries != info->nr_points) {
-    if (g_custom_depth_image.data) {
-      g_custom_depth_image.deallocate();
-    }
-    g_custom_depth_image.allocate(info->width, info->height, info->nr_points);
-  }
-
   for (uint32_t i=0; i < info->nr_points; ++i) {
-    g_custom_depth_image.data[i] = info->points[i].z;
+    G_CUSTOM_DEPTH_IMAGE.data[i] = info->points[i].z;
   }
 
-  if (g_py_process_z) {
+  if (G_PY_PROCESS_Z) {
     // Get GIL
     PyGILState_STATE gil_state = PyGILState_Ensure();
 
     // Convert to NumPy Image
-    npy_intp dims[2] = {g_custom_depth_image.height, g_custom_depth_image.width};
-    PyObject *image = PyArray_SimpleNewFromData(2, dims, NPY_FLOAT, g_custom_depth_image.data);
+    npy_intp dims[2] = {G_CUSTOM_DEPTH_IMAGE.height, G_CUSTOM_DEPTH_IMAGE.width};
+    PyObject *image = PyArray_SimpleNewFromData(2, dims, NPY_FLOAT, G_CUSTOM_DEPTH_IMAGE.data);
     PyObject *args = PyTuple_Pack(1, image);
 
     // Call Python callback
-    PyObject *ret = PyObject_Call(g_py_process_z, args, NULL);
+    PyObject *ret = PyObject_Call(G_PY_PROCESS_Z, args, NULL);
 
     Py_DECREF(ret);
     Py_DECREF(args);
@@ -350,11 +342,17 @@ public:
       PyErr_SetString(PyExc_TypeError, "Argument must be None or callable object.");
       return NULL;
     }
+
+    // Currently picoflexx supports one resolution 224x171.
+    // If it supports something other we need to change it here dynamically.
+    uint16_t width = 224, height = 171; uint32_t nr_points = 38304;
+    G_CUSTOM_DEPTH_IMAGE.allocate(width, height, nr_points);
+
     // DO NOT CHANGE THE ORDER OF THE FOLLOWING THREE LINES, OTHERWISE THE CALL TO C API HANGS UP
     // ----->
     royale_camera_status status = royale_camera_device_register_data_listener(handle_, &parse_z_from_depth_data);
     if (callable != Py_None) {
-      g_py_process_z = callable;
+      G_PY_PROCESS_Z = callable;
       Py_XINCREF(callable);
     }
     // <-----
@@ -375,12 +373,14 @@ public:
     }
     // DO NOT CHANGE THE ORDER OF THE FOLLOWING THREE LINES, OTHERWISE THE CALL TO C API HANGS UP
     // ----->
-    if (g_py_process_z != Py_None) {
-      Py_XDECREF(g_py_process_z);
-      g_py_process_z = NULL;
+    if (G_PY_PROCESS_Z != Py_None) {
+      Py_XDECREF(G_PY_PROCESS_Z);
+      G_PY_PROCESS_Z = NULL;
     }
     royale_camera_status status = royale_camera_device_unregister_data_listener(handle_);
     // <-----
+
+    G_CUSTOM_DEPTH_IMAGE.deallocate();
 
     if (ROYALE_STATUS_SUCCESS == status) {
       Py_RETURN_NONE;
