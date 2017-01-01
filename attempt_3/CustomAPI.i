@@ -344,21 +344,20 @@ public:
       return NULL;
     }
   };
-  PyObject *register_data_listener(PyObject *callable) {
+  PyObject *register_data_listener(PyObject *callable=Py_None) {
     printf("Registering depth image listener.\n");
-    if (!PyCallable_Check(callable)) {
-      PyErr_SetString(PyExc_TypeError, "callable must be Callable object.");
+    if (callable != Py_None && !PyCallable_Check(callable)) {
+      PyErr_SetString(PyExc_TypeError, "Argument must be None or callable object.");
       return NULL;
     }
-    // if (!is_capturing()) {
-    //   PyErr_SetString(PyExc_RuntimeError, "Camera must be capturing data to register callback.");
-    //   return NULL
-    // }
-
     // DO NOT CHANGE THE ORDER OF THE FOLLOWING THREE LINES, OTHERWISE THE CALL TO C API HANGS UP
+    // ----->
     royale_camera_status status = royale_camera_device_register_data_listener(handle_, &parse_z_from_depth_data);
-    g_py_process_z = callable;
-    Py_XINCREF(callable);
+    if (callable != Py_None) {
+      g_py_process_z = callable;
+      Py_XINCREF(callable);
+    }
+    // <-----
 
     if (ROYALE_STATUS_SUCCESS == status) {
       Py_RETURN_NONE;
@@ -375,9 +374,13 @@ public:
       return NULL;
     }
     // DO NOT CHANGE THE ORDER OF THE FOLLOWING THREE LINES, OTHERWISE THE CALL TO C API HANGS UP
-    Py_XDECREF(g_py_process_z);
-    g_py_process_z = NULL;
+    // ----->
+    if (g_py_process_z != Py_None) {
+      Py_XDECREF(g_py_process_z);
+      g_py_process_z = NULL;
+    }
     royale_camera_status status = royale_camera_device_unregister_data_listener(handle_);
+    // <-----
 
     if (ROYALE_STATUS_SUCCESS == status) {
       Py_RETURN_NONE;

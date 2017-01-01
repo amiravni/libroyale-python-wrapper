@@ -32,16 +32,17 @@ def test2():
     camera = royale.CameraDevice(h_camera)
     camera.initialize()
     cases = camera.get_use_cases()
-    print cases
-    camera.set_use_case(cases[0])
-    print camera.get_camera_info()
-    print 'Capturing?', camera.is_capturing()
-    camera.start_capture()
-    camera.register_data_listener(save_image)
-    time.sleep(3)
-    print 'Capturing?', camera.is_capturing()
-    camera.unregister_data_listener()
-    camera.stop_capture()
+    if cases:
+        print cases
+        camera.set_use_case(cases[0])
+        print camera.get_camera_info()
+        print 'Capturing?', camera.is_capturing()
+        camera.start_capture()
+        camera.register_data_listener(save_image)
+        time.sleep(3)
+        print 'Capturing?', camera.is_capturing()
+        camera.unregister_data_listener()
+        camera.stop_capture()
 
     print 'Exiting'
 
