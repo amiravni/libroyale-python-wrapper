@@ -1,29 +1,33 @@
 set -eux
 
-PYTHON_ROOT_DIR=$(python get_python_root_dir.py)
-PYTHON_INCLUDE_DIR="${PYTHON_ROOT_DIR}/include/python2.7"
-PYTHON_LIB_DIR="${PYTHON_ROOT_DIR}/lib"
+function abspath() {
+    pushd . > /dev/null;
+    if [ -d "$1" ]; then
+	cd "$1"; dirs -l +0;
+    else
+	cd "`dirname \"$1\"`";
+	cur_dir=`dirs -l +0`;
+	if [ "$cur_dir" == "/" ]; then
+	    echo "$cur_dir`basename \"$1\"`";
+	else
+	    echo "$cur_dir/`basename \"$1\"`";
+	fi;
+    fi;
+    popd > /dev/null;
+}
 
-NUMPY_INCLUDE_DIR=$(python -c "import numpy;print(numpy.get_include())")
 
-LIBROYALE_ROOT_DIR="../libroyale"
-LIBROYALE_INCLUDE_DIR="${LIBROYALE_ROOT_DIR}/include/royaleCAPI"
-LIBROYALE_LIB_DIR="${LIBROYALE_ROOT_DIR}/bin"
+mkdir -p build
+cd build
+cmake .. -DROYALE_ROOT_DIR=../libroyale
+make
+cp ../royale_test.py ./
+mkdir -p images
 
-swig -python -c++ -I${LIBROYALE_INCLUDE_DIR} royale.i
-
-g++ -g -fPIC -c royale_wrap.cxx -o royale_wrap.o \
-    -std=c++11 \
-    -I${LIBROYALE_INCLUDE_DIR} \
-    -I${PYTHON_INCLUDE_DIR} \
-    -I${NUMPY_INCLUDE_DIR}
-
-g++ -g royale_wrap.o -shared -o _royale.so \
-    -L${LIBROYALE_LIB_DIR} -lroyaleCAPI \
-    -L${PYTHON_LIB_DIR} -lpython2.7
+LIBROYALE_PATH=$(abspath "../../libroyale/bin")
 
 if [ $(uname -s) = Darwin ]; then
-    DYLD_LIBRARY_PATH="${DYLD_LIBRARY_PATH+''}:${LIBROYALE_LIB_DIR}" python royale_test.py
+    DYLD_LIBRARY_PATH="${DYLD_LIBRARY_PATH+''}:${LIBROYALE_PATH}" python royale_test.py
 elif [ $(uname -s) = Linux ]; then
-    LD_LIBRARY_PATH="${LD_LIBRARY_PATH+''}:${LIBROYALE_LIB_DIR}:/usr/local/lib" python royale_test.py
+    LD_LIBRARY_PATH="${LD_LIBRARY_PATH+''}:${LIBROYALE_PATH}:/usr/local/lib" python royale_test.py
 fi

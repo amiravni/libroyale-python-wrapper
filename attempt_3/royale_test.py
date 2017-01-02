@@ -30,24 +30,23 @@ def test2():
     manager.initialize()
     cameras = manager.get_connected_cameras()
     print cameras
-    h_camera = manager.create_camera_device(cameras[0])
-    print h_camera
-    camera = royale.CameraDevice(h_camera)
-    camera.initialize()
-    print camera.get_camera_name()
-    cases = camera.get_use_cases()
-    if cases:
-        print cases
-        camera.set_use_case('MODE_9_15FPS_700')
-        print camera.get_camera_info()
-        print camera.get_current_use_case()
-        camera.start_capture()
-        camera.register_data_listener(save_image)
-        time.sleep(3)
-        camera.unregister_data_listener()
-        camera.stop_capture()
-
-    print 'Exiting'
+    if cameras:
+        h_camera = manager.create_camera_device(cameras[0])
+        print h_camera
+        camera = royale.CameraDevice(h_camera)
+        camera.initialize()
+        print camera.get_camera_name()
+        cases = camera.get_use_cases()
+        if cases:
+            print cases
+            camera.set_use_case('MODE_9_15FPS_700')
+            print camera.get_camera_info()
+            print camera.get_current_use_case()
+            camera.start_capture()
+            camera.register_data_listener(save_image)
+            time.sleep(3)
+            camera.unregister_data_listener()
+            camera.stop_capture()
 
 
 if __name__ == '__main__':
