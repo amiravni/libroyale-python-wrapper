@@ -16,15 +16,14 @@ function abspath() {
     popd > /dev/null;
 }
 
+LIBROYALE_PATH=$(abspath "./libroyale/bin")
 
 mkdir -p build
 cd build
-cmake .. -DROYALE_ROOT_DIR=../libroyale
+cmake .. -DROYALE_ROOT_DIR=./libroyale
 make
 cp ../royale_test.py ./
 mkdir -p images
-
-LIBROYALE_PATH=$(abspath "../../libroyale/bin")
 
 if [ $(uname -s) = Darwin ]; then
     DYLD_LIBRARY_PATH="${DYLD_LIBRARY_PATH+''}:${LIBROYALE_PATH}" python royale_test.py
