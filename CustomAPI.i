@@ -341,27 +341,15 @@ public:
       return NULL;
     }
   };
-  PyObject *register_data_listener(PyObject *callable=Py_None) {
-    printf("Registering depth image listener.\n");
-    if (callable != Py_None && !PyCallable_Check(callable)) {
-      PyErr_SetString(PyExc_TypeError, "Argument must be None or callable object.");
-      return NULL;
-    }
-
+  PyObject *register_data_listener() {
+    printf("Registering data listener.\n");
     // Currently picoflexx supports one resolution 224x171.
     // If it supports something other we need to change it here dynamically.
     uint16_t width = 224, height = 171;
     G_DEPTH_IMAGE_BUFFER.allocate(width, height);
     G_GRAY_IMAGE_BUFFER.allocate(width, height);
 
-    // DO NOT CHANGE THE ORDER OF THE FOLLOWING THREE LINES, OTHERWISE THE CALL TO C API HANGS UP
-    // ----->
     royale_camera_status status = royale_camera_device_register_data_listener(handle_, &parse_images);
-    if (callable != Py_None) {
-      G_PYTHON_DATA_CALLBACK = callable;
-      Py_XINCREF(callable);
-    }
-    // <-----
 
     if (ROYALE_STATUS_SUCCESS == status) {
       Py_RETURN_NONE;
@@ -370,21 +358,19 @@ public:
       return NULL;
     }
   };
-  PyObject *unregister_data_listener() {
-    printf("Unregistering depth image listener.\n");
-    if (!is_capturing()) {
-      PyErr_SetString(PyExc_RuntimeError,
-		      "Camera must be capturing data to unregister callback, otherwise the underlying C API call hangs.");
+  PyObject *register_python_callback(PyObject *callable) {
+    printf("Registering python callback.\n");
+    if (!PyCallable_Check(callable)) {
+      PyErr_SetString(PyExc_TypeError, "Argument must be None or callable object.");
       return NULL;
     }
-    // DO NOT CHANGE THE ORDER OF THE FOLLOWING THREE LINES, OTHERWISE THE CALL TO C API HANGS UP
-    // ----->
-    if (G_PYTHON_DATA_CALLBACK != Py_None) {
-      Py_XDECREF(G_PYTHON_DATA_CALLBACK);
-      G_PYTHON_DATA_CALLBACK = NULL;
-    }
+    G_PYTHON_DATA_CALLBACK = callable;
+    Py_XINCREF(callable);
+    Py_RETURN_NONE;
+  };
+  PyObject *unregister_data_listener() {
+    printf("Unregistering data listener.\n");
     royale_camera_status status = royale_camera_device_unregister_data_listener(handle_);
-    // <-----
 
     G_DEPTH_IMAGE_BUFFER.deallocate();
     G_GRAY_IMAGE_BUFFER.deallocate();
@@ -395,6 +381,14 @@ public:
       set_error_message(status, "Failed to unregister data listner", PyExc_RuntimeError);
       return NULL;
     }
+  };
+  PyObject *unregister_python_callback() {
+    if (G_PYTHON_DATA_CALLBACK != Py_None) {
+      printf("Unregistering python callback.\n");
+      G_PYTHON_DATA_CALLBACK = NULL;
+      Py_XDECREF(G_PYTHON_DATA_CALLBACK);
+    }
+    Py_RETURN_NONE;
   };
   PyObject *is_capturing() {
     bool is_capturing;

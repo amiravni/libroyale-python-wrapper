@@ -21,10 +21,6 @@ def save_image(depth_image, gray_image):
     i += 1
 
 
-def _aaa(arg):
-    print arg
-
-
 def test2():
     manager = royale.CameraManager()
     manager.initialize()
@@ -42,12 +38,14 @@ def test2():
             camera.set_use_case('MODE_9_15FPS_700')
             print camera.get_camera_info()
             print camera.get_current_use_case()
+            camera.register_python_callback(save_image)
+            camera.register_data_listener()
             camera.start_capture()
-            camera.register_data_listener(save_image)
-            time.sleep(3)
-            camera.unregister_data_listener()
+            time.sleep(1)
             camera.stop_capture()
-
+            time.sleep(1)
+            camera.unregister_data_listener()
+            camera.unregister_python_callback()
 
 if __name__ == '__main__':
     test2()
