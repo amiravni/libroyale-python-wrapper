@@ -37,7 +37,7 @@ include_directories (
 
 set (CMAKE_SWIG_FLAGS "-Wall")
 
-set (INTERFACE_FILE royale.i)
+set (INTERFACE_FILE src/royale.i)
 
 set (CMAKE_VERBOSE_MAKEFILE on)
 
