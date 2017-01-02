@@ -267,12 +267,12 @@ public:
     }
   };
   PyObject *set_exposure_time(PyObject *exposure_time) const {
-    if (!PyInt_Check(exposure_time)) {
-      PyErr_SetString(PyExc_TypeError, "exposure_time must be integer");
+    if (!PyInt_Check(exposure_time) && !PyLong_Check(exposure_time)) {
+      PyErr_SetString(PyExc_TypeError, "exposure_time must be integer or long");
       return NULL;
     }
     printf("Setting exposure time.\n");
-    royale_camera_status status = royale_camera_device_set_exposure_time(handle_, PyInt_AsUnsignedLongLongMask(exposure_time));
+    royale_camera_status status = royale_camera_device_set_exposure_time(handle_, PyLong_AsUnsignedLong(exposure_time));
 
     if (ROYALE_STATUS_SUCCESS == status) {
       Py_RETURN_NONE;
