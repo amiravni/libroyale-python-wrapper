@@ -46,6 +46,15 @@ void set_error_message(const royale_camera_status status, const char *message, P
   PyErr_Format(error_type, "%s; %s", message, error_string);
   royale_free_string (error_string);
 };
+/// Logging function
+void logging(const char * format, ... ) {
+#ifdef DEBUG
+  va_list args;
+  va_start (args, format);
+  vprintf (format, args);
+  va_end (args);
+#endif
+}
 %}
 
 %inline %{
@@ -87,7 +96,7 @@ public:
       PyErr_SetString(PyExc_RuntimeError, "Failed to create camera object.");
       return NULL;
     } else {
-      printf("Created camera handle: %llu\n", cam_handle);
+      logging("Created camera handle: %llu\n", cam_handle);
       return PyLong_FromUnsignedLongLong(cam_handle);
     }
   };
@@ -110,14 +119,14 @@ struct ImageBuffer {
     }
   };
   void deallocate() {
-    printf("Deallocating memory.\n");
+    logging("Deallocating memory.\n");
     delete[] data;
     data = NULL;
     width = height = 0;
   };
   void allocate(const uint16_t width, const uint16_t height) {
     uint32_t n_pixels = width * height;
-    printf("Allocating %d pixels (W:%d, H:%d).\n", n_pixels, width, height);
+    logging("Allocating %d pixels (W:%d, H:%d).\n", n_pixels, width, height);
     data = new T[n_pixels];
     this->width = width; this->height = height;
   };
@@ -167,7 +176,7 @@ public:
     }
   };
   PyObject *initialize() const {
-    printf("Initializing camera device: %llu.\n", handle_);
+    logging("Initializing camera device: %llu.\n", handle_);
     royale_camera_status status = royale_camera_device_initialize(handle_);
     if (ROYALE_STATUS_SUCCESS == status) {
       Py_RETURN_NONE;
@@ -177,13 +186,13 @@ public:
     }
   };
   PyObject *destroy() {
-    printf("Destroying camera device: %llu.\n", handle_);
+    logging("Destroying camera device: %llu.\n", handle_);
     royale_camera_device_destroy(handle_);
     handle_ = 0;
     Py_RETURN_NONE;
   }
-  PyObject *getId() const {
-    printf("Fetching camera device ID: %llu.\n", handle_);
+  PyObject *get_id() const {
+    logging("Fetching camera device ID: %llu.\n", handle_);
     char *id;
     royale_camera_status status = royale_camera_device_get_id(handle_, &id);
 
@@ -197,7 +206,7 @@ public:
     }
   };
   PyObject *get_camera_name() const {
-    printf("Fetching camera name: %llu.\n", handle_);
+    logging("Fetching camera name: %llu.\n", handle_);
     char *name;
     royale_camera_status status = royale_camera_device_get_camera_name(handle_, &name);
     if (ROYALE_STATUS_SUCCESS == status) {
@@ -210,11 +219,12 @@ public:
     }
   };
   PyObject *get_camera_info() const {
-    printf("Fetching camera info from device: %llu.\n", handle_);
+    logging("Fetching camera info from device: %llu.\n", handle_);
     uint32_t nr_info_entries;
     royale_pair_string_string *info;
     royale_camera_status status = royale_camera_device_get_camera_info(handle_, &info, &nr_info_entries);
-    printf("Fetched %u info.\n", nr_info_entries);
+    logging("Fetched %u info.\n", nr_info_entries);
+
     if (ROYALE_STATUS_SUCCESS == status) {
       PyObject *ret = to_dict(info, nr_info_entries);
       royale_free_pair_string_string_array(&info, nr_info_entries);
@@ -225,7 +235,7 @@ public:
     }
   };
   PyObject *set_use_case(PyObject *use_case_name) const {
-    printf("Setting use case.\n");
+    logging("Setting use case.\n");
     if (!PyString_Check(use_case_name)) {
       PyErr_SetString(PyExc_TypeError, "Expecting a str");
       return NULL;
@@ -239,7 +249,7 @@ public:
     }
   };
   PyObject *get_use_cases() const {
-    printf("Getting use cases.\n");
+    logging("Getting use cases.\n");
     char **use_cases;
     uint32_t nr_use_cases;
     royale_camera_status status = royale_camera_device_get_use_cases(handle_, &use_cases, &nr_use_cases);
@@ -249,12 +259,12 @@ public:
       royale_free_string_array(use_cases, nr_use_cases);
       return ret;
     } else {
-      set_error_message(status, "Failed to set use case", PyExc_RuntimeError);
+      set_error_message(status, "Failed to get use case", PyExc_RuntimeError);
       return NULL;
     }
   };
   PyObject *get_current_use_case() const {
-    printf("Getting the current use case.\n");
+    logging("Getting the current use case.\n");
     char *use_case_name;
     royale_camera_status status = royale_camera_device_get_current_use_case(handle_, &use_case_name);
     if (ROYALE_STATUS_SUCCESS == status) {
@@ -271,7 +281,7 @@ public:
       PyErr_SetString(PyExc_TypeError, "exposure_time must be integer or long");
       return NULL;
     }
-    printf("Setting exposure time.\n");
+    logging("Setting exposure time.\n");
     royale_camera_status status = royale_camera_device_set_exposure_time(handle_, PyLong_AsUnsignedLong(exposure_time));
 
     if (ROYALE_STATUS_SUCCESS == status) {
@@ -297,7 +307,7 @@ public:
       PyErr_SetString(PyExc_ValueError, "exposure_mode must be either \"MANUAL\" or \"AUTOMATIC\"");
       return NULL;
     }
-    printf("Setting exposure time.\n");
+    logging("Setting exposure time.\n");
     royale_camera_status status = royale_camera_device_set_exposure_time(handle_, mode);
     if (ROYALE_STATUS_SUCCESS == status) {
       Py_RETURN_NONE;
@@ -321,7 +331,7 @@ public:
     }
   };
   PyObject *start_capture() {
-    printf("Starting capture.\n");
+    logging("Starting capture.\n");
     royale_camera_status status = royale_camera_device_start_capture(handle_);
 
     if (ROYALE_STATUS_SUCCESS == status) {
@@ -332,7 +342,7 @@ public:
     }
   };
   PyObject *stop_capture() {
-    printf("Stopping capture.\n");
+    logging("Stopping capture.\n");
     royale_camera_status status = royale_camera_device_stop_capture(handle_);
     if (ROYALE_STATUS_SUCCESS == status) {
       Py_RETURN_NONE;
@@ -342,7 +352,7 @@ public:
     }
   };
   PyObject *register_data_listener() {
-    printf("Registering data listener.\n");
+    logging("Registering data listener.\n");
     // Currently picoflexx supports one resolution 224x171.
     // If it supports something other we need to change it here dynamically.
     uint16_t width = 224, height = 171;
@@ -359,7 +369,7 @@ public:
     }
   };
   PyObject *register_python_callback(PyObject *callable) {
-    printf("Registering python callback.\n");
+    logging("Registering python callback.\n");
     if (!PyCallable_Check(callable)) {
       PyErr_SetString(PyExc_TypeError, "Argument must be None or callable object.");
       return NULL;
@@ -369,7 +379,7 @@ public:
     Py_RETURN_NONE;
   };
   PyObject *unregister_data_listener() {
-    printf("Unregistering data listener.\n");
+    logging("Unregistering data listener.\n");
     royale_camera_status status = royale_camera_device_unregister_data_listener(handle_);
 
     G_DEPTH_IMAGE_BUFFER.deallocate();
@@ -384,7 +394,7 @@ public:
   };
   PyObject *unregister_python_callback() {
     if (G_PYTHON_DATA_CALLBACK != Py_None) {
-      printf("Unregistering python callback.\n");
+      logging("Unregistering python callback.\n");
       G_PYTHON_DATA_CALLBACK = NULL;
       Py_XDECREF(G_PYTHON_DATA_CALLBACK);
     }
