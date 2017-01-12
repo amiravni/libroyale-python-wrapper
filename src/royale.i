@@ -9,11 +9,11 @@ ROYALE_NEW_API_2_2_0
 ROYALE_FINAL_API_2_2_0
 %enddef
 
-%include DefinitionsCAPI.h
 %rename(DepthData) royale_depth_data;
-%include DepthDataCAPI.h
 %rename(DepthImage) royale_depth_image;
-%include DepthImageCAPI.h
-%include CameraDeviceCAPI.h
-%include CameraManagerCAPI.h
+%include <DefinitionsCAPI.h>
+%include <DepthDataCAPI.h>
+%include <DepthImageCAPI.h>
+%include <CameraDeviceCAPI.h>
+%include <CameraManagerCAPI.h>
 %include CustomAPI.i

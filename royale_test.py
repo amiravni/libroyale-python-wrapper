@@ -1,7 +1,7 @@
 from __future__ import division
 
 import time
-import royale
+from royale_wrapper import royale
 
 import numpy as np
 import scipy.misc
@@ -14,12 +14,13 @@ i = 0
 def save_image(depth_image, gray_image):
     global i
     print i
+    '''
     filename = 'images/depth_{:03d}.png'.format(i)
     scipy.misc.imsave(filename, normalize_image(depth_image, 3))
     filename = 'images/gray_{:03d}.png'.format(i)
     scipy.misc.imsave(filename, gray_image)
+    '''
     i += 1
-
 
 def test2():
     manager = royale.CameraManager()
