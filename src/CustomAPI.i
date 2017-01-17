@@ -50,6 +50,7 @@ void set_error_message(const royale_camera_status status, const char *message, P
 void logging(const char * format, ... ) {
 #ifdef DEBUG
   va_list args;
+  printf("[DEBUG]");
   va_start (args, format);
   vprintf (format, args);
   va_end (args);
@@ -244,7 +245,7 @@ public:
     if (ROYALE_STATUS_SUCCESS == status) {
       Py_RETURN_NONE;
     } else {
-      set_error_message(status, "Failed to set use case", PyExc_RuntimeError);
+      set_error_message(status, "Failed to set use case", PyExc_ValueError);
       return NULL;
     }
   };

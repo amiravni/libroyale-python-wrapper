@@ -18,6 +18,11 @@ def _normalize_image(image, max_val=None):
 
 
 def _save_image(depth_image, gray_image):
+    _save_image.counter += 1
+
+    if not _save_image.enabled:
+        return
+
     if not os.path.exists('tmp'):
         os.makedirs('tmp')
 
@@ -28,54 +33,56 @@ def _save_image(depth_image, gray_image):
     filename = 'tmp/gray_{:03d}.png'.format(_save_image.counter)
     scipy.misc.imsave(filename, gray_image)
 
-    _save_image.counter += 1
 
 _save_image.counter = 0
+_save_image.enabled = True
 
 
 def _parse_command_line_args():
     ap = argparse.ArgumentParser(
         description='Test royale API'
     )
-    ap.add_argument('--camera', type=int, default=0)
-    ap.add_argument('--use-case')
+    ap.add_argument('camera')
+    ap.add_argument('--use_case')
+    ap.add_argument('--disable-save', action='store_true')
     return ap.parse_args(sys.argv[2:])
+
+
+def _get_camera(id_):
+    manager = royale.CameraManager()
+    manager.initialize()
+    manager.get_connected_cameras()
+    h_camera = manager.create_camera_device(id_)
+    del manager
+    return royale.CameraDevice(h_camera)
 
 
 def test():
     """Test royale_wrapper"""
     args = _parse_command_line_args()
 
-    manager = royale.CameraManager()
-    manager.initialize()
-    cameras = manager.get_connected_cameras()
-
-    h_camera = manager.create_camera_device(cameras[args.camera])
-    camera = royale.CameraDevice(h_camera)
+    camera = _get_camera(args.camera)
     camera.initialize()
 
-    print('ID:', camera.get_id())
     print('Name:', camera.get_camera_name())
 
-    cases = camera.get_use_cases()
-    print('Cases:')
-    for case in cases:
-        print('  - {}'.format(case))
+    if args.use_case:
+        camera.set_use_case(args.use_case)
 
-    case = args.use_case or cases[0]
-    print('Using:', case)
-    camera.set_use_case(case)
+    print('Using:', camera.get_current_use_case())
+    _save_image.enabled = not args.disable_save
 
     camera.register_python_callback(_save_image)
     camera.register_data_listener()
 
-    print('Start capturing')
+    print('Capturing for 5 sec')
     camera.start_capture()
-    time.sleep(3)
-
+    time.sleep(5)
+    counter = _save_image.counter
     print('Stop capturing')
     camera.stop_capture()
-    time.sleep(1)
+    print('Callback called {} times. ({} /sec)'.format(counter, counter / 5))
 
+    time.sleep(1)
     camera.unregister_data_listener()
     camera.unregister_python_callback()
