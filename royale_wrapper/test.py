@@ -17,7 +17,7 @@ def _normalize_image(image, max_val=None):
     return (image / max_val * 255).astype(np.uint8)
 
 
-def _save_image(depth_image, gray_image):
+def _save_image(gray_image, x_image, y_image, z_image):
     _save_image.counter += 1
 
     if not _save_image.enabled:
@@ -27,10 +27,13 @@ def _save_image(depth_image, gray_image):
         os.makedirs('tmp')
 
     print('Saving image:', _save_image.counter)
-    filename = 'tmp/depth_{:03d}.png'.format(_save_image.counter)
-    scipy.misc.imsave(filename, _normalize_image(depth_image, 3))
-
-    filename = 'tmp/gray_{:03d}.png'.format(_save_image.counter)
+    filename = 'tmp/d{:03d}_x.png'.format(_save_image.counter)
+    scipy.misc.imsave(filename, _normalize_image(x_image, 3))
+    filename = 'tmp/d{:03d}_y.png'.format(_save_image.counter)
+    scipy.misc.imsave(filename, _normalize_image(y_image, 3))
+    filename = 'tmp/d{:03d}_z.png'.format(_save_image.counter)
+    scipy.misc.imsave(filename, _normalize_image(z_image, 3))
+    filename = 'tmp/{:03d}_gray.png'.format(_save_image.counter)
     scipy.misc.imsave(filename, gray_image)
 
 

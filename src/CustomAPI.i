@@ -135,7 +135,9 @@ struct ImageBuffer {
 ////////////////////////////////////////////////////////////////////////////////
 // Callbacks
 PyObject *G_PYTHON_DATA_CALLBACK = NULL;
-ImageBuffer<float> G_DEPTH_IMAGE_BUFFER;
+ImageBuffer<float> G_DEPTH_IMAGE_X_BUFFER;
+ImageBuffer<float> G_DEPTH_IMAGE_Y_BUFFER;
+ImageBuffer<float> G_DEPTH_IMAGE_Z_BUFFER;
 ImageBuffer<uint16_t> G_GRAY_IMAGE_BUFFER;
 
 template<typename T>
@@ -144,8 +146,10 @@ PyObject *convert_buffer_to_numpy_array(const ImageBuffer<T> &image, const NPY_T
   return PyArray_SimpleNewFromData(2, dims, type, image.data);
 }
 
-void call_python_callback(PyObject *depth_array, PyObject *gray_array, PyObject *callback) {
-  PyObject *args = PyTuple_Pack(2, depth_array, gray_array);
+ void call_python_callback(
+    PyObject *callback, PyObject *gray_array,
+    PyObject *x_array, PyObject *y_array, PyObject *z_array) {
+  PyObject *args = PyTuple_Pack(4, gray_array, x_array, y_array, z_array);
   PyObject *ret = PyObject_Call(callback, args, NULL);
   Py_DECREF(ret);
   Py_DECREF(args);
@@ -153,14 +157,18 @@ void call_python_callback(PyObject *depth_array, PyObject *gray_array, PyObject 
 
 void parse_images(royale_depth_data *info) {
   for (uint32_t i=0; i < info->nr_points; ++i) {
-    G_DEPTH_IMAGE_BUFFER.data[i] = info->points[i].z;
+    G_DEPTH_IMAGE_X_BUFFER.data[i] = info->points[i].x;
+    G_DEPTH_IMAGE_Y_BUFFER.data[i] = info->points[i].y;
+    G_DEPTH_IMAGE_Z_BUFFER.data[i] = info->points[i].z;
     G_GRAY_IMAGE_BUFFER.data[i] = info->points[i].gray_value;
   }
   if (G_PYTHON_DATA_CALLBACK) {
     PyGILState_STATE lock = PyGILState_Ensure();
-    PyObject *depth = convert_buffer_to_numpy_array(G_DEPTH_IMAGE_BUFFER, NPY_FLOAT);
+    PyObject *x = convert_buffer_to_numpy_array(G_DEPTH_IMAGE_X_BUFFER, NPY_FLOAT);
+    PyObject *y = convert_buffer_to_numpy_array(G_DEPTH_IMAGE_Y_BUFFER, NPY_FLOAT);
+    PyObject *z = convert_buffer_to_numpy_array(G_DEPTH_IMAGE_Z_BUFFER, NPY_FLOAT);
     PyObject *gray = convert_buffer_to_numpy_array(G_GRAY_IMAGE_BUFFER, NPY_UINT16);
-    call_python_callback(depth, gray, G_PYTHON_DATA_CALLBACK);
+    call_python_callback(G_PYTHON_DATA_CALLBACK, gray, x, y, z);
     PyGILState_Release(lock);
   }
 };
@@ -357,7 +365,9 @@ public:
     // Currently picoflexx supports one resolution 224x171.
     // If it supports something other we need to change it here dynamically.
     uint16_t width = 224, height = 171;
-    G_DEPTH_IMAGE_BUFFER.allocate(width, height);
+    G_DEPTH_IMAGE_X_BUFFER.allocate(width, height);
+    G_DEPTH_IMAGE_Y_BUFFER.allocate(width, height);
+    G_DEPTH_IMAGE_Z_BUFFER.allocate(width, height);
     G_GRAY_IMAGE_BUFFER.allocate(width, height);
 
     royale_camera_status status = royale_camera_device_register_data_listener(handle_, &parse_images);
@@ -372,7 +382,7 @@ public:
   PyObject *register_python_callback(PyObject *callable) {
     logging("Registering python callback.\n");
     if (!PyCallable_Check(callable)) {
-      PyErr_SetString(PyExc_TypeError, "Argument must be None or callable object.");
+      PyErr_SetString(PyExc_TypeError, "Argument must be callable object.");
       return NULL;
     }
     G_PYTHON_DATA_CALLBACK = callable;
@@ -383,7 +393,9 @@ public:
     logging("Unregistering data listener.\n");
     royale_camera_status status = royale_camera_device_unregister_data_listener(handle_);
 
-    G_DEPTH_IMAGE_BUFFER.deallocate();
+    G_DEPTH_IMAGE_X_BUFFER.deallocate();
+    G_DEPTH_IMAGE_Y_BUFFER.deallocate();
+    G_DEPTH_IMAGE_Z_BUFFER.deallocate();
     G_GRAY_IMAGE_BUFFER.deallocate();
 
     if (ROYALE_STATUS_SUCCESS == status) {
