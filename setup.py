@@ -11,10 +11,17 @@ _LIB_NAME = 'royale_wrapper'
 
 
 def _build_royale_wrapper(source_dir, build_dir):
-    cmd = ['cmake', '-B{}'.format(build_dir), '-H{}'.format(source_dir)]
-    subprocess.call(cmd)
-    cmd = ['make', '-C', build_dir, 'VERBOSE=1']
-    subprocess.call(cmd)
+    cmds = [
+        ['cmake', '-B{}'.format(build_dir), '-H{}'.format(source_dir)],
+        ['make', '-C', build_dir, 'VERBOSE=1'],
+    ]
+
+    for cmd in cmds:
+        process = subprocess.Popen(cmd)
+        process.wait()
+
+        if process.returncode != 0:
+            raise RuntimeError('Failed to execute: {}.'.format(cmd))
 
 
 class _BuildPyCommand(_build_py):
