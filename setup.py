@@ -2,39 +2,41 @@ from __future__ import print_function
 from __future__ import absolute_import
 
 import os
-import setuptools
 import subprocess
+
+import setuptools
 from setuptools.command.build_py import build_py as _build_py
 
+_LIB_NAME = 'royale_wrapper'
 
-def _build_royale_wrapper():
-    source_dir = os.path.dirname(os.path.abspath(__file__))
-    build_dir = os.path.join(source_dir, 'royale_wrapper')
+
+def _build_royale_wrapper(source_dir, build_dir):
     cmd = ['cmake', '-B{}'.format(build_dir), '-H{}'.format(source_dir)]
     subprocess.call(cmd)
-    cmd = ['make', '-C', build_dir]
+    cmd = ['make', '-C', build_dir, 'VERBOSE=1']
     subprocess.call(cmd)
 
 
 class _BuildPyCommand(_build_py):
     """Custom build command."""
     def run(self):
-        _build_royale_wrapper()
+        source_dir = os.path.dirname(os.path.abspath(__file__))
+        build_dir = os.path.join(source_dir, _LIB_NAME)
+
+        _build_royale_wrapper(source_dir, build_dir)
         _build_py.run(self)
 
 
 def _setup():
     setuptools.setup(
-        name='royale_wrapper',
+        name=_LIB_NAME,
         version='v0.1.0',
         cmdclass={
             'build_py': _BuildPyCommand,
         },
-        packages=[
-            'royale_wrapper',
-        ],
+        packages=setuptools.find_packages(),
         package_data={
-            'royale_wrapper': [
+            _LIB_NAME: [
                 '_royale.so',
             ],
         },

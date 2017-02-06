@@ -2,7 +2,9 @@
 
 This is a python simple wrapper of [libroyale, the API of picoflexx depth sensor](http://pmdtec.com/picoflexx/software/).
 
-Currently only work on LINUX and Mac. Windows build is not implemented.
+Currently only work on LINUX and Mac, and tested with libroyale version 2.3.0.92.
+
+Windows build is not implemented.
 
 
 ## Installation
@@ -31,18 +33,36 @@ pip install git+https://github.com/mthrok/libroyale-python-wrapper
 ```
 
 
-### Manual Build & Installation
+### Manual Installation
+```bash
+git clone https://github.com/mthrok/libroyale-python-wrapper
+cd libroyale-python-wrapper
+pip install .
+```
+
+Do not use `python setup.py install`, it hides `_royale.so` (SWIG wrapper) from `royale` command line.
+
+
+### Manual Build
 ```bash
 git clone https://github.com/mthrok/libroyale-python-wrapper
 mkdir libroyale-python-wrapper/build
 cd libroyale-python-wrapper/build
 cmake ..
 make
-make install
 ```
 
 
-### Windows build
+### Notes on build process
+
+When building with `pip install .`
+
+1. `CMake` and `make` builds SWIG wrapper scripts and object file and put them in `royale_wrapper` directory
+2. `setuptools` install wrapper scripts, object files, and command line scripts. (This step is same as normal Python package.)
+
+
+
+### Notes on Windows build
 
 The following scripts have to be fixed for Windows build
 
