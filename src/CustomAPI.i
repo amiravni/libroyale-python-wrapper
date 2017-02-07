@@ -1,8 +1,8 @@
+%module custom_api
 %{
 #define SWIG_FILE_WITH_INIT
 %}
 
-%module custom_api
 %include typemaps.i
 %include numpy.i
 
@@ -10,18 +10,10 @@
 if (!PyEval_ThreadsInitialized()) {
   PyEval_InitThreads();
 }
-
 import_array();
 %}
 
-%{
-#define ROYALE_NEW_API_2_2_0
-#define ROYALE_FINAL_API_2_2_0
-
-#include<CameraDeviceCAPI.h>
-#include<CameraManagerCAPI.h>
-%}
-
+////////////////////////////////////////////////////////////////////////////////
 /// Helper functions for converting Python <-> C
 %{
 /// Convert a array of string into Python list of string
@@ -57,7 +49,10 @@ void logging(const char * format, ... ) {
 #endif
 }
 %}
+////////////////////////////////////////////////////////////////////////////////
 
+////////////////////////////////////////////////////////////////////////////////
+// Custom Manager/Device Class
 %inline %{
 class CameraManager {
   royale_cam_manager_hnd handle_;
@@ -450,3 +445,4 @@ public:
   // get_max_frame_rate
 };
 %}
+////////////////////////////////////////////////////////////////////////////////
